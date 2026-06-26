@@ -2,187 +2,211 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>CS2 iPad Mobile Edition</title>
+    <title>Minecraft 3D Enhanced - Pavilion Edition</title>
     <style>
         html, body {
             margin: 0; padding: 0; overflow: hidden;
-            background-color: #050708;
-            font-family: system-ui, -apple-system, sans-serif;
-            position: fixed; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, #7accff 0%, #b3e0ff 60%, #e1f3ff 100%); /* Atmospheric Sky */
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            width: 100%; height: 100%;
             user-select: none; -webkit-user-select: none;
             touch-action: none;
         }
-        #game-container {
-            position: relative; width: 100vw; height: 100vh;
-            display: flex; justify-content: center; align-items: center;
+        #game-container { position: relative; width: 100vw; height: 100vh; }
+        canvas { display: block; width: 100%; height: 100%; position: absolute; z-index: 1; }
+        
+        /* Original Style Crosshair */
+        #crosshair {
+            position: absolute; top: 50%; left: 50%; width: 16px; height: 16px;
+            transform: translate(-50%, -50%); pointer-events: none; z-index: 10;
+            mix-blend-mode: difference;
         }
-        canvas { 
-            display: block; background: #11141a; width: 100%; height: 100%; 
-            position: absolute; top: 0; left: 0; z-index: 1;
+        #crosshair::before, #crosshair::after { content: ''; position: absolute; background: white; }
+        #crosshair::before { top: 7px; left: -5px; width: 26px; height: 2px; }
+        #crosshair::after { top: -5px; left: 7px; width: 2px; height: 26px; }
+
+        /* Authentic Hotbar Menu UI */
+        #hotbar {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            display: flex; background: rgba(141, 141, 141, 0.85); padding: 4px;
+            border: 4px solid #3c3c3c; border-radius: 2px; z-index: 25;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
         }
-        #weapon-select-screen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(12, 17, 24, 0.98);
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            z-index: 100;
-            pointer-events: auto; /* Forces iOS touch activation pass */
+        .slot {
+            width: 46px; height: 46px; margin: 0 3px; border: 4px solid #373737;
+            background-size: cover; display: flex; align-items: flex-end; justify-content: flex-end;
+            color: #fff; font-size: 12px; font-weight: bold; padding: 2px; text-shadow: 1px 1px 2px #000;
         }
-        .menu-title {
-            color: #de9b35; font-size: 26px; font-weight: 800;
-            margin-bottom: 25px; letter-spacing: 2px; text-transform: uppercase;
-        }
-        /* Refactored into a native touch button element to prevent iOS click trapping */
-        button.weapon-btn {
-            background: #1b222c; color: #e2e8f0; border: 2px solid #3b4856;
-            padding: 20px 45px; margin: 12px; font-size: 18px; font-weight: 700;
-            border-radius: 8px; cursor: pointer; width: 280px; text-align: center;
-            display: block; -webkit-appearance: none;
-            touch-action: manipulation; pointer-events: auto;
-        }
-        button.weapon-btn:active {
-            background: #de9b35;
-            color: #000;
-        }
-        #hud-top {
-            position: absolute; top: 20px; display: flex;
-            justify-content: center; width: 100%; gap: 20px; pointer-events: none; z-index: 10;
-        }
-        #hud-bottom {
-            position: absolute; bottom: 25px; left: 5%; right: 5%;
-            display: flex; justify-content: space-between; pointer-events: none; z-index: 10;
-        }
-        .hud-card {
-            background: rgba(11, 14, 19, 0.85); border-bottom: 3px solid #de9b35;
-            color: #f8fafc; padding: 10px 20px; font-size: 20px; font-weight: 800; border-radius: 4px;
-        }
-        .health-text { color: #f43f5e; }
-        .ammo-text { color: #eab308; }
-        #game-prompt {
-            position: absolute; top: 35%; color: #ef4444; font-size: 28px;
-            font-weight: 900; display: none; z-index: 15; text-transform: uppercase; pointer-events: none;
-        }
-        /* Dynamic bottom interaction buttons */
-        #shoot-btn, #reload-btn {
-            position: absolute; z-index: 50; display: flex; 
-            justify-content: center; align-items: center; color: #ffffff; 
-            font-weight: 900; -webkit-appearance: none; touch-action: manipulation;
-        }
-        #shoot-btn {
-            right: 40px; bottom: 160px; width: 100px; height: 100px;
-            background: rgba(239, 68, 68, 0.5); border: 3px solid #ef4444; border-radius: 50%;
-            font-size: 18px;
-        }
-        #reload-btn {
-            right: 45px; bottom: 50px; width: 90px; height: 70px;
-            background: rgba(59, 130, 246, 0.4); border: 3px solid #3b82f6; border-radius: 12px;
-            font-size: 15px;
+        .slot.active { border-color: #ffffff; box-shadow: 0 0 10px #ffffff; }
+
+        #jump-btn {
+            position: absolute; right: 40px; bottom: 40px; width: 80px; height: 80px;
+            background: rgba(255,255,255,0.25); border: 4px solid rgba(255,255,255,0.6);
+            border-radius: 50%; color: white; font-weight: bold; font-size: 16px;
+            display: flex; align-items: center; justify-content: center; z-index: 30;
         }
     </style>
 </head>
 <body>
+
     <div id="game-container">
-        <!-- Re-engineered Layout using Interactive Button Nodes -->
-        <div id="weapon-select-screen">
-            <div class="menu-title">SELECT CS2 LOADOUT</div>
-            <button id="btn-pistol" class="weapon-btn">USP-S (Pistol)</button>
-            <button id="btn-rifle" class="weapon-btn">AK-47 (Rifle)</button>
-            <button id="btn-sniper" class="weapon-btn">AWP (Sniper)</button>
+        <div id="crosshair"></div>
+        <div id="jump-btn">JUMP</div>
+        <div id="hotbar">
+            <div class="slot active" data-block="grass" style="background-color:#5cc43e;">1</div>
+            <div class="slot" data-block="dirt" style="background-color:#866043;">2</div>
+            <div class="slot" data-block="stone" style="background-color:#7f8385;">3</div>
+            <div class="slot" data-block="wood" style="background-color:#a17249;">4</div>
+            <div class="slot" data-block="leaves" style="background-color:#2e6f1c;">5</div>
+            <div class="slot" data-block="diamond" style="background-color:#4dedf0;">6</div>
         </div>
-        <div id="hud-top"><div class="hud-card">SCORE: <span id="hud-score">0</span></div></div>
-        <div id="hud-bottom">
-            <div class="hud-card">+ <span id="hud-health" class="health-text">100</span></div>
-            <div class="hud-card" style="color: #94a3b8;"><span id="hud-weapon">-</span></div>
-            <div class="hud-card"><span id="hud-ammo" class="ammo-text">30</span>/<span id="hud-max-ammo">30</span></div>
-        </div>
-        <div id="game-prompt">RELOADING...</div>
-        <button id="shoot-btn">FIRE</button>
-        <button id="reload-btn">RELOAD</button>
-        <canvas id="fpsCanvas"></canvas>
+        <canvas id="voxelCanvas"></canvas>
     </div>
+
     <script>
-        const canvas = document.getElementById("fpsCanvas");
+        const canvas = document.getElementById("voxelCanvas");
         const ctx = canvas.getContext("2d");
-        let gameActive = false, score = 0, health = 100;
-        let currentWeapon = { name: '', damage: 1, color: '', ammo: 30, maxAmmo: 30, reloadTime: 1500, recoil: 0, scope: false };
-        let isReloading = false, flashbangAlpha = 0, muzzleFlashTimer = 0, damageOverlayTimer = 0;
-        const enemies = [], maxEnemies = 3, player = { x: 0, z: 0 };
-        const joystick = { active: false, startX: 0, startY: 0, vx: 0, vy: 0, maxRadius: 50 };
 
-        function selectWeapon(name, damage, color, maxAmmo, reloadTime, recoil, scope) {
-            currentWeapon = { name, damage, color, ammo: maxAmmo, maxAmmo, reloadTime, recoil, scope };
-            document.getElementById("hud-weapon").innerText = name;
-            updateHUD();
-            document.getElementById("weapon-select-screen").style.display = "none";
-            gameActive = true;
-            initEnemies();
-        }
-        function updateHUD() {
-            document.getElementById("hud-health").innerText = health;
-            document.getElementById("hud-ammo").innerText = currentWeapon.ammo;
-            document.getElementById("hud-max-ammo").innerText = currentWeapon.maxAmmo;
-            document.getElementById("hud-score").innerText = score;
-        }
-        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-        function initEnemies() { enemies.length = 0; for(let i=0; i<maxEnemies; i++) { spawnEnemy(); } }
-        function spawnEnemy() {
-            enemies.push({ x: (Math.random() * 360) - 180, z: (Math.random() * 180) + 260, radius: 22, speed: (Math.random() * 0.8) + 0.8, shootCooldown: Math.random() * 90 + 60 });
-        }
+        // Game Configuration Matrix
+        const BLOCK_SIZE = 30;
+        const WORLD_SIZE = 16;
+        const blocks = [];
 
-        // Direct Touchstart hooks to prevent default Safari event capture bubbling
-        const bindTrigger = (id, callback) => {
-            const el = document.getElementById(id);
-            el.addEventListener("touchstart", (e) => { e.preventDefault(); callback(); }, { passive: false });
-            el.addEventListener("click", (e) => { e.preventDefault(); callback(); });
+        // Realistic Physics and View Settings
+        const player = { 
+            x: 240, y: -300, z: 240, 
+            yaw: 0, pitch: 0, 
+            speed: 3, velocityY: 0, 
+            isGrounded: false, height: 50 
         };
+        const GRAVITY = 0.4;
+        const JUMP_FORCE = -7;
 
-        bindTrigger("btn-pistol", () => selectWeapon('USP-S', 34, '#475569', 12, 1200, 2, false));
-        bindTrigger("btn-rifle", () => selectWeapon('AK-47', 48, '#854d0e', 30, 2100, 12, false));
-        bindTrigger("btn-sniper", () => selectWeapon('AWP', 115, '#166534', 10, 3200, 0, true));
-        bindTrigger("shoot-btn", () => shootWeapon());
-        bindTrigger("reload-btn", () => reloadWeapon());
+        let activeItem = "grass";
+        const keys = { w: false, a: false, s: false, d: false, " ": false };
+        
+        // Touch Interaction Mapping
+        const joystick = { active: false, startX: 0, startY: 0, vx: 0, vy: 0 };
+        const lookTouch = { active: false, lastX: 0, lastY: 0 };
+        let lastTap = 0;
 
-        function setupControls() {
-            window.addEventListener('touchstart', (e) => {
-                for (let touch of e.changedTouches) {
-                    if (touch.clientX < window.innerWidth / 2 && touch.clientY > window.innerHeight / 2) {
-                        joystick.active = true; joystick.startX = touch.clientX; joystick.startY = touch.clientY;
+        function initWorld() {
+            blocks.length = 0;
+            // Generate structured landscape height mapping arrays
+            for (let x = 0; x < WORLD_SIZE; x++) {
+                for (let z = 0; z < WORLD_SIZE; z++) {
+                    let groundHeight = Math.floor(Math.sin(x * 0.3) * 2 + Math.cos(z * 0.3) * 2) + 6;
+                    for (let y = 0; y < groundHeight; y++) {
+                        let type = "stone";
+                        if (y === groundHeight - 1) type = "grass";
+                        else if (y > groundHeight - 4) type = "dirt";
+                        
+                        if (y < 2 && Math.random() < 0.1) type = "diamond";
+
+                        blocks.push({ x: x * BLOCK_SIZE, y: -y * BLOCK_SIZE, z: z * BLOCK_SIZE, type: type });
+                    }
+
+                    // Natural tree generation vectors
+                    if (x > 3 && x < WORLD_SIZE-3 && z > 3 && z < WORLD_SIZE-3 && Math.random() < 0.03) {
+                        let trunkBase = -groundHeight * BLOCK_SIZE;
+                        for(let h=0; h<3; h++) {
+                            blocks.push({ x: x*BLOCK_SIZE, y: trunkBase - (h*BLOCK_SIZE), z: z*BLOCK_SIZE, type: "wood" });
+                        }
+                        // Canopy
+                        let leafBase = trunkBase - (3*BLOCK_SIZE);
+                        for(let lx=-1; lx<=1; lx++) {
+                            for(let lz=-1; lz<=1; lz++) {
+                                blocks.push({ x: (x+lx)*BLOCK_SIZE, y: leafBase, z: (z+lz)*BLOCK_SIZE, type: "leaves" });
+                            }
+                        }
                     }
                 }
-            }, { passive: false });
-            
-            window.addEventListener('touchmove', (e) => {
-                if(gameActive) e.preventDefault();
-                if (!joystick.active) return;
-                for (let touch of e.touches) {
-                    if (touch.clientX < window.innerWidth / 2) {
-                        let dx = touch.clientX - joystick.startX, dy = touch.clientY - joystick.startY;
-                        let distance = Math.sqrt(dx*dx + dy*dy);
-                        if (distance > joystick.maxRadius) { dx = (dx / distance) * joystick.maxRadius; dy = (dy / distance) * joystick.maxRadius; }
-                        joystick.vx = dx / joystick.maxRadius; joystick.vy = dy / joystick.maxRadius;
-                    }
-                }
-            }, { passive: false });
-            
-            window.addEventListener('touchend', () => { joystick.active = false; joystick.vx = 0; joystick.vy = 0; });
+            }
         }
 
-        function reloadWeapon() {
-            if (isReloading || currentWeapon.ammo === currentWeapon.maxAmmo) return;
-            isReloading = true;
-            document.getElementById("game-prompt").style.display = "block";
-            setTimeout(() => {
-                currentWeapon.ammo = currentWeapon.maxAmmo; isReloading = false;
-                document.getElementById("game-prompt").style.display = "none"; updateHUD();
-            }, currentWeapon.reloadTime);
+        // Direct Touch Hotbar Processing Engine
+        document.querySelectorAll(".slot").forEach(slot => {
+            const select = () => {
+                document.querySelectorAll(".slot").forEach(s => s.classList.remove('active'));
+                slot.classList.add('active');
+                activeItem = slot.getAttribute("data-block");
+            };
+            slot.addEventListener("touchstart", (e) => { e.stopPropagation(); select(); });
+            slot.addEventListener("click", (e) => { e.stopPropagation(); select(); });
+        });
+
+        // Unblockable Universal Screen Activation Trigger
+        window.addEventListener("pointerdown", (e) => {
+            // Request Pointer Lock if mouse click is used
+            if (e.pointerType === "mouse" && document.pointerLockElement !== canvas) {
+                canvas.requestPointerLock();
+            }
+        });
+
+        // Mouse Look Processing Engine
+        document.addEventListener("mousemove", (e) => {
+            if (document.pointerLockElement !== canvas) return;
+            player.yaw += e.movementX * 0.003;
+            player.pitch = Math.max(-Math.PI/2.5, Math.min(Math.PI/2.5, player.pitch - e.movementY * 0.003));
+        });
+
+        // PC Action Clicks
+        document.addEventListener("mousedown", (e) => {
+            if (document.pointerLockElement !== canvas) return;
+            if (e.button === 0) breakBlock();
+            else if (e.button === 2) placeBlock();
+        });
+
+        // Touch Screen Controls Integration Zone
+        window.addEventListener("touchstart", (e) => {
+            const now = Date.now();
+            for (let t of e.changedTouches) {
+                if (t.target.id === "jump-btn") {
+                    if (player.isGrounded) player.velocityY = JUMP_FORCE;
+                } else if (t.clientX < window.innerWidth / 2) {
+                    joystick.active = true; joystick.startX = t.clientX; joystick.startY = t.clientY;
+                } else {
+                    lookTouch.active = true; lookTouch.lastX = t.clientX; lookTouch.lastY = t.clientY;
+                    if (now - lastTap < 220) placeBlock();
+                    else setTimeout(() => { if (!lookTouch.active) breakBlock(); }, 150);
+                    lastTap = now;
+                }
+            }
+        }, { passive: false });
+
+        window.addEventListener("touchmove", (e) => {
+            e.preventDefault();
+            for (let t of e.touches) {
+                if (t.clientX < window.innerWidth / 2 && joystick.active) {
+                    let dx = t.clientX - joystick.startX, dy = t.clientY - joystick.startY;
+                    let len = Math.sqrt(dx*dx + dy*dy);
+                    if (len > 40) { dx = (dx/len)*40; dy = (dy/len)*40; }
+                    joystick.vx = dx / 40; joystick.vy = dy / 40;
+                } else if (lookTouch.active) {
+                    player.yaw += (t.clientX - lookTouch.lastX) * 0.008;
+                    player.pitch = Math.max(-Math.PI/2.5, Math.min(Math.PI/2.5, player.pitch - (t.clientY - lookTouch.lastY) * 0.008));
+                    lookTouch.lastX = t.clientX; lookTouch.lastY = t.clientY;
+                }
+            }
+        }, { passive: false });
+
+        window.addEventListener("touchend", () => { joystick.active = false; joystick.vx = 0; joystick.vy = 0; lookTouch.active = false; });
+
+        function breakBlock() { if (blocks.length > 0) blocks.pop(); }
+        function placeBlock() {
+            blocks.push({
+                x: Math.floor((player.x + Math.sin(player.yaw)*50)/BLOCK_SIZE)*BLOCK_SIZE,
+                y: Math.floor((player.y + player.height)/BLOCK_SIZE)*BLOCK_SIZE,
+                z: Math.floor((player.z + Math.cos(player.yaw)*50)/BLOCK_SIZE)*BLOCK_SIZE,
+                type: activeItem
+            });
         }
-        function shootWeapon() {
-            if (!gameActive || isReloading || flashbangAlpha > 0.5) return;
-            if (currentWeapon.ammo <= 0) { reloadWeapon(); return; }
-            currentWeapon.ammo--; muzzleFlashTimer = 4; updateHUD();
-            player.x += (Math.random() - 0.5) * currentWeapon.recoil * 0.4;
-            enemies.sort((a, b) => a.z - b.z);
-            for (let i = 0; i < enemies.length; i++) {
-                let e = enemies[i], factor = 420 / e.z;
-                let screenX = (canvas.width / 2) + (e.x - player.x) * factor;
-                let screenY = (canvas.height / 2) - (player.z) * factor;
+
+        // Keyboard tracking mapping
+        document.addEventListener("keydown", (e) => {
+            if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true;
+            if (e.key === " " && player.isGrounded) player.velocityY = JUMP_FORCE;
+            let num = parseInt(e.key);
+            if (num >= 1 && num <= 6) {
+                const slots = document.querySelectorAll(".slot");
+                slots.forEach(s => s.classList.remove('active'));
