@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CS2 Mobile Mobile Edition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>CS2 iPad Mobile Edition</title>
     <style>
         html, body {
             margin: 0; padding: 0; overflow: hidden;
@@ -11,26 +11,38 @@
             font-family: system-ui, -apple-system, sans-serif;
             position: fixed; width: 100%; height: 100%;
             user-select: none; -webkit-user-select: none;
+            touch-action: none;
         }
         #game-container {
             position: relative; width: 100vw; height: 100vh;
             display: flex; justify-content: center; align-items: center;
         }
-        canvas { display: block; background: #11141a; width: 100%; height: 100%; }
+        canvas { 
+            display: block; background: #11141a; width: 100%; height: 100%; 
+            position: absolute; top: 0; left: 0; z-index: 1;
+        }
         #weapon-select-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(12, 17, 24, 0.96);
+            background: rgba(12, 17, 24, 0.98);
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             z-index: 100;
+            pointer-events: auto; /* Forces iOS touch activation pass */
         }
         .menu-title {
             color: #de9b35; font-size: 26px; font-weight: 800;
             margin-bottom: 25px; letter-spacing: 2px; text-transform: uppercase;
         }
-        .weapon-btn {
-            background: #1b222c; color: #e2e8f0; border: 1px solid #3b4856;
-            padding: 18px 45px; margin: 8px; font-size: 16px; font-weight: 700;
-            border-radius: 6px; cursor: pointer; width: 260px; text-align: center;
+        /* Refactored into a native touch button element to prevent iOS click trapping */
+        button.weapon-btn {
+            background: #1b222c; color: #e2e8f0; border: 2px solid #3b4856;
+            padding: 20px 45px; margin: 12px; font-size: 18px; font-weight: 700;
+            border-radius: 8px; cursor: pointer; width: 280px; text-align: center;
+            display: block; -webkit-appearance: none;
+            touch-action: manipulation; pointer-events: auto;
+        }
+        button.weapon-btn:active {
+            background: #de9b35;
+            color: #000;
         }
         #hud-top {
             position: absolute; top: 20px; display: flex;
@@ -50,27 +62,32 @@
             position: absolute; top: 35%; color: #ef4444; font-size: 28px;
             font-weight: 900; display: none; z-index: 15; text-transform: uppercase; pointer-events: none;
         }
+        /* Dynamic bottom interaction buttons */
+        #shoot-btn, #reload-btn {
+            position: absolute; z-index: 50; display: flex; 
+            justify-content: center; align-items: center; color: #ffffff; 
+            font-weight: 900; -webkit-appearance: none; touch-action: manipulation;
+        }
         #shoot-btn {
-            position: absolute; right: 40px; bottom: 160px; width: 100px; height: 100px;
-            background: rgba(239, 68, 68, 0.35); border: 2px solid #ef4444; border-radius: 50%;
-            color: #ffffff; font-weight: 900; font-size: 18px;
-            display: flex; justify-content: center; align-items: center; z-index: 20;
+            right: 40px; bottom: 160px; width: 100px; height: 100px;
+            background: rgba(239, 68, 68, 0.5); border: 3px solid #ef4444; border-radius: 50%;
+            font-size: 18px;
         }
         #reload-btn {
-            position: absolute; right: 45px; bottom: 50px; width: 90px; height: 70px;
-            background: rgba(59, 130, 246, 0.3); border: 2px solid #3b82f6; border-radius: 12px;
-            color: #ffffff; font-weight: 800; font-size: 15px;
-            display: flex; justify-content: center; align-items: center; z-index: 20;
+            right: 45px; bottom: 50px; width: 90px; height: 70px;
+            background: rgba(59, 130, 246, 0.4); border: 3px solid #3b82f6; border-radius: 12px;
+            font-size: 15px;
         }
     </style>
 </head>
 <body>
     <div id="game-container">
+        <!-- Re-engineered Layout using Interactive Button Nodes -->
         <div id="weapon-select-screen">
             <div class="menu-title">SELECT CS2 LOADOUT</div>
-            <div id="btn-pistol" class="weapon-btn">USP-S (Pistol)</div>
-            <div id="btn-rifle" class="weapon-btn">AK-47 (Rifle)</div>
-            <div id="btn-sniper" class="weapon-btn">AWP (Sniper)</div>
+            <button id="btn-pistol" class="weapon-btn">USP-S (Pistol)</button>
+            <button id="btn-rifle" class="weapon-btn">AK-47 (Rifle)</button>
+            <button id="btn-sniper" class="weapon-btn">AWP (Sniper)</button>
         </div>
         <div id="hud-top"><div class="hud-card">SCORE: <span id="hud-score">0</span></div></div>
         <div id="hud-bottom">
@@ -79,8 +96,8 @@
             <div class="hud-card"><span id="hud-ammo" class="ammo-text">30</span>/<span id="hud-max-ammo">30</span></div>
         </div>
         <div id="game-prompt">RELOADING...</div>
-        <div id="shoot-btn">FIRE</div>
-        <div id="reload-btn">RELOAD</div>
+        <button id="shoot-btn">FIRE</button>
+        <button id="reload-btn">RELOAD</button>
         <canvas id="fpsCanvas"></canvas>
     </div>
     <script>
@@ -112,10 +129,18 @@
             enemies.push({ x: (Math.random() * 360) - 180, z: (Math.random() * 180) + 260, radius: 22, speed: (Math.random() * 0.8) + 0.8, shootCooldown: Math.random() * 90 + 60 });
         }
 
-        // True Touch controls for raw HTML view
-        document.getElementById("btn-pistol").addEventListener("click", () => selectWeapon('USP-S', 34, '#475569', 12, 1200, 2, false));
-        document.getElementById("btn-rifle").addEventListener("click", () => selectWeapon('AK-47', 48, '#854d0e', 30, 2100, 12, false));
-        document.getElementById("btn-sniper").addEventListener("click", () => selectWeapon('AWP', 115, '#166534', 10, 3200, 0, true));
+        // Direct Touchstart hooks to prevent default Safari event capture bubbling
+        const bindTrigger = (id, callback) => {
+            const el = document.getElementById(id);
+            el.addEventListener("touchstart", (e) => { e.preventDefault(); callback(); }, { passive: false });
+            el.addEventListener("click", (e) => { e.preventDefault(); callback(); });
+        };
+
+        bindTrigger("btn-pistol", () => selectWeapon('USP-S', 34, '#475569', 12, 1200, 2, false));
+        bindTrigger("btn-rifle", () => selectWeapon('AK-47', 48, '#854d0e', 30, 2100, 12, false));
+        bindTrigger("btn-sniper", () => selectWeapon('AWP', 115, '#166534', 10, 3200, 0, true));
+        bindTrigger("shoot-btn", () => shootWeapon());
+        bindTrigger("reload-btn", () => reloadWeapon());
 
         function setupControls() {
             window.addEventListener('touchstart', (e) => {
@@ -124,7 +149,8 @@
                         joystick.active = true; joystick.startX = touch.clientX; joystick.startY = touch.clientY;
                     }
                 }
-            });
+            }, { passive: false });
+            
             window.addEventListener('touchmove', (e) => {
                 if(gameActive) e.preventDefault();
                 if (!joystick.active) return;
@@ -137,9 +163,8 @@
                     }
                 }
             }, { passive: false });
+            
             window.addEventListener('touchend', () => { joystick.active = false; joystick.vx = 0; joystick.vy = 0; });
-            document.getElementById("shoot-btn").addEventListener('click', shootWeapon);
-            document.getElementById("reload-btn").addEventListener('click', reloadWeapon);
         }
 
         function reloadWeapon() {
@@ -161,17 +186,3 @@
                 let e = enemies[i], factor = 420 / e.z;
                 let screenX = (canvas.width / 2) + (e.x - player.x) * factor;
                 let screenY = (canvas.height / 2) - (player.z) * factor;
-                let dist = Math.sqrt(Math.pow(canvas.width / 2 - screenX, 2) + Math.pow((canvas.height / 2) - screenY, 2));
-                if (dist < e.radius * factor) { enemies.splice(i, 1); score += 300; updateHUD(); spawnEnemy(); break; }
-            }
-        }
-        function update() {
-            if (!gameActive) return;
-            player.x += joystick.vx * 3.8; player.z -= joystick.vy * 3.8;
-            if (player.x < -180) player.x = -180; if (player.x > 180) player.x = 180;
-            enemies.forEach((enemy) => {
-                enemy.z -= enemy.speed;
-                if (enemy.z > 180 && Math.random() < 0.0015 && flashbangAlpha <= 0) flashbangAlpha = 1.0;
-                enemy.shootCooldown--;
-                if (enemy.shootCooldown <= 0 && enemy.z > 20) {
-                    health -= 14; damageOverlayTimer = 5; enemy.shootCooldown = Math.random() * 80 + 60; updateHUD();
